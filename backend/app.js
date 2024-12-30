@@ -80,15 +80,14 @@ const createSiteTable = async () => {
             siteaddress TEXT NOT NULL,
             sitedescription TEXT NOT NULL,
             images TEXT NOT NULL,
+            videos TEXT NOT NULL,
             category TEXT NOT NULL,
             createdat TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
 
-    await pool.query(`
-        ALTER TABLE sites
-        ADD COLUMN IF NOT EXISTS videos TEXT DEFAULT 'Unknown' NOT NULL;
-        `)
+    
+    
 
 
     try {
@@ -118,25 +117,35 @@ app.get("/api/sites", async (req, res) => {
 
 // Add a new site
 app.post("/api/sites", upload.array("images"), async (req, res) => {
-    const { sitename, sitetitle, siteaddress, sitedescription, category } = req.body;
-    const imagePaths = req.files.map((file) => file.filename).join(",");
-
+    const { sitename, sitetitle, siteaddress, sitedescription, videos, category } = req.body;
+  
     try {
-        await pool.query(
-            "INSERT INTO sites (sitename, sitetitle, siteaddress, sitedescription, images, category) VALUES ($1, $2, $3, $4, $5, $6)",
-            [sitename, sitetitle, siteaddress, sitedescription, imagePaths, category]
-        );
-        res.status(201).json({ message: "Site created successfully" });
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "No images uploaded" });
+      }
+  
+      const imagePaths = req.files.map((file) => file.filename).join(",");
+      console.log("Image paths:", imagePaths); // Log uploaded images
+  
+      console.log("Request body:", { sitename, sitetitle, siteaddress, sitedescription, videos, category }); // Log request body
+  
+      await pool.query(
+        "INSERT INTO sites (sitename, sitetitle, siteaddress, sitedescription, images, videos, category) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        [sitename, sitetitle, siteaddress, sitedescription, imagePaths, videos, category]
+      );
+  
+      res.status(201).json({ message: "Site created successfully" });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error adding site" });
+      console.error("Error adding site:", error); // Log error details
+      res.status(500).json({ message: "Error adding site", error: error.message });
     }
-});
+  });
+  
 
 // Update a site
 app.put("/api/sites/:id", upload.array("images"), async (req, res) => {
     const { id } = req.params;
-    const { sitename, sitetitle, siteaddress, sitedescription, category } = req.body;
+    const { sitename, sitetitle, siteaddress, sitedescription, videos, category } = req.body;
 
     try {
         // Handle new image uploads
@@ -149,8 +158,8 @@ app.put("/api/sites/:id", upload.array("images"), async (req, res) => {
 
         // Update site information
         await pool.query(
-            "UPDATE sites SET sitename = $1, sitetitle = $2, siteaddress = $3, sitedescription = $4, images = $5, category = $6 WHERE id = $7",
-            [sitename, sitetitle, siteaddress, sitedescription, imagePaths.join(","), category, id]
+            "UPDATE sites SET sitename = $1, sitetitle = $2, siteaddress = $3, sitedescription = $4, images = $5, videos = $6, category = $7 WHERE id = $8",
+            [sitename, sitetitle, siteaddress, sitedescription, imagePaths.join(","), videos, category, id]
         );
 
         res.json({ message: "Site updated successfully" });
